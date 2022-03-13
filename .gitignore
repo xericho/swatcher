@@ -8,3 +8,6 @@
 # Ignore all .ini files, other than the sample file
 *.ini
 !swatcher.ini
+
+.python-version
+*.history

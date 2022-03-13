@@ -1,4 +1,4 @@
-import ConfigParser
+import configparser
 import re
 
 class configurationNotificationSmtp(object):
@@ -27,7 +27,7 @@ class configurationNotificationSmtp(object):
 		else:
 			raise Exception("Configuration for SMTP missing required 'sender' option")
 
-		self.useAuth = False			
+		self.useAuth = False
 		if(cp.has_option('smtp', 'username')):
 			self.username = cp.get('smtp', 'username')
 			self.useAuth = True
@@ -39,14 +39,14 @@ class configurationNotificationSmtp(object):
 class configurationNotificationTwilio(object):
 
 	def __init__(self, cp):
-		
+
 		self.type = 'twilio'
 
 		if(cp.has_option('twilio', 'accountSid')):
 			self.accountSid = cp.get('twilio', 'accountSid')
 		else:
 			raise Exception("Configuration for Twilio missing required 'accountSid' option")
-		
+
 		if(cp.has_option('twilio', 'authToken')):
 			self.authToken = cp.get('twilio', 'authToken')
 		else:
@@ -65,7 +65,7 @@ class configurationNotificationTwilio(object):
 class configurationNotificationNone(object):
 
 	def __init__(self, cp):
-		
+
 		self.type = 'none'
 
 
@@ -77,7 +77,7 @@ class configurationBrowserChrome(object):
 
 		if(cp.has_section('chrome') == False):
 			raise Exception("Configuration file does not contain 'chrome' section")
-		
+
 		if(cp.has_option('chrome', 'binaryLocation')):
 			self.binaryLocation = cp.get('chrome', 'binaryLocation')
 		else:
@@ -96,7 +96,7 @@ class configurationBrowserFirefox(object):
 
 		if(cp.has_section('firefox') == False):
 			raise Exception("Configuration file does not contain 'chrome' section")
-		
+
 		if(cp.has_option('firefox', 'binaryLocation')):
 			self.binaryLocation = cp.get('firefox', 'binaryLocation')
 		else:
@@ -136,7 +136,7 @@ class configurationTrip(object):
 			raise Exception("For section '" + section + "', required option departureDate is missing")
 
 		self.departureTimeOfDay = cp.get(section, 'departureTimeOfDay') if cp.has_option(section,'departureTimeOfDay') else 'anytime'
-					
+
 		self.returnDate = cp.get(section, 'returnDate') if cp.has_option(section,'returnDate') else ''
 		self.returnTimeOfDay = cp.get(section, 'returnTimeOfDay') if cp.has_option(section,'returnTimeOfDay') else 'anytime'
 
@@ -156,7 +156,7 @@ class configuration(object):
 
 	def __init__(self, configurationFile):
 
-		cp = ConfigParser.SafeConfigParser()
+		cp = configparser.SafeConfigParser()
 		cp.read(configurationFile)
 
 		if(cp.has_section('global') == False):
@@ -189,7 +189,7 @@ class configuration(object):
 			self.notification = configurationNotificationNone(cp)
 		else:
 			raise Exception("Unrecognized notificationMethod '" + self.notificationMethod + "'")
-		
+
 		if(cp.has_option('global', 'browser')):
 			self.browser = cp.get('global', 'browser')
 		else:
@@ -215,7 +215,7 @@ class configuration(object):
 				continue
 
 			self.trips.append(configurationTrip(cp, section, i))
-			
+
 			i += 1
 
 		if(len(self.trips) == 0):
