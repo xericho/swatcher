@@ -111,14 +111,14 @@ def scrapeFlights(flight):
 
     flightDetails = {}
 
-    flightDetails['flight'] = "".join(flight.find_element(by=By.CLASS_NAME, value="flight-numbers--flight-number").text.split("#")[1].split())
+    flightDetails['flight'] = WebDriverWait(flight, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "flight-numbers--flight-number"))) \
+        .text.replace(' ','').replace('#', '')
 
-    flightDetails['origination'] = flight.find_element(by=By.XPATH, value="//div[@data-test='select-detail--origination-time']").text
-
+    flightDetails['return'] = flight.find_element(by=By.XPATH, value="//div[@data-test='select-detail--origination-time']").text
     # Text here can contain "Next Day", so just take time portion
     flightDetails['destination'] = flight.find_element(by=By.XPATH, value="//div[@data-test='select-detail--destination-time']").text
 
-    durationList = flight.find_element(by=By.CLASS_NAME, value="select-detail--flight-duration").text.split()
+    durationList = WebDriverWait(flight, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "select-detail--flight-duration"))).text.split()
     # For flight duration, just round to 2 decimal places - that should be more than enough
     flightDetails['duration'] = round(float(durationList[0].split("h")[0]) +  ((float(durationList[1].split("m")[0])/60.0) + .001), 2)
 
@@ -174,16 +174,16 @@ def scrape(
     waitCSS += "#air-booking-product-1" if tripType == 'roundtrip' else "#air-booking-product-0"
 
     try:
-        element = WebDriverWait(driver, URL_TIMEOUT).until( EC.element_to_be_clickable((By.CSS_SELECTOR, waitCSS)))
-        driver.implicitly_wait(5)
+        element = WebDriverWait(driver, URL_TIMEOUT).until(EC.element_to_be_clickable((By.CSS_SELECTOR, waitCSS)))
+        # driver.implicitly_wait(10)
 
     except TimeoutException:
         raise scrapeTimeout("scrape: Timeout occurred after " + str(URL_TIMEOUT) + " seconds waiting for web result")
     except Exception as ex:
-        message = "An exception of type {0} occurred. Arguments:\n{1!r}".format(type(ex).__name__, ex.args)
+        message = "An {0} exception occurred:\n{1!r}".format(type(ex).__name__, ex)
         raise scrapeGeneral("scrape: General exception occurred - " + message)
     finally:
-        if(debug):
+        if debug:
             open("dump-" + datetime.datetime.now().strftime('%Y%m%d-%H%M%S') + ".html", "w").write(u''.join((driver.page_source)).encode('utf-8').strip())
 
     if("page-error--list" in element.get_attribute("class")):
@@ -203,21 +203,17 @@ def scrape(
     priceMatrixes = driver.find_elements(by=By.CLASS_NAME, value="air-booking-select-price-matrix")
 
     departFlights, returnFlights = [], []
-    try:
-        if (payload['tripType'] == 'roundtrip'):
-            if (len(priceMatrixes) != 2):
-                raise Exception("Only one set of prices returned for round-trip travel")
+    if payload['tripType'] == 'roundtrip':
+        if len(priceMatrixes) != 2:
+            raise Exception("Only one set of prices returned for round-trip travel")
 
-            for element in  priceMatrixes[0].find_elements(by=By.CLASS_NAME, value="air-booking-select-detail"):
-                departFlights.append(scrapeFlights(element))
+        elements = priceMatrixes[0].find_elements(by=By.CLASS_NAME, value="air-booking-select-detail")
+        departFlights += [scrapeFlights(e) for e in elements]
 
-            for element in  priceMatrixes[1].find_elements(by=By.CLASS_NAME, value="air-booking-select-detail"):
-                returnFlights.append(scrapeFlights(element))
-        else:
-            for element in  priceMatrixes[0].find_elements(by=By.CLASS_NAME, value="air-booking-select-detail"):
-                departFlights.append(scrapeFlights(element))
-    except Exception as ex:
-        message = "An exception of type {0} occurred. Arguments:\n{1!r}".format(type(ex).__name__, ex.args)
-        raise scrapeGeneral("scrape: General exception occurred - " + message)
+        elements = priceMatrixes[1].find_elements(by=By.CLASS_NAME, value="air-booking-select-detail")
+        returnFlights += [scrapeFlights(e) for e in elements]
+    else:
+        for element in priceMatrixes[0].find_elements(by=By.CLASS_NAME, value="air-booking-select-detail"):
+            departFlights.append(scrapeFlights(element))
 
     return departFlights, returnFlights

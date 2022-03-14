@@ -31,7 +31,7 @@ and installed by either adding the chromedriver directory to your path or copyin
 
 #### Using with Mozilla Firefox
 
-Swatcher has been tested with Mozilla Firefox 66.0.1. To use Selenium with Mozilla Firefox, you will also need geckodriver, which can be downloaded at:
+Swatcher has not been tested with Mozilla Firefox recently. To use Selenium with Mozilla Firefox, you will also need geckodriver, which can be downloaded at:
 
 https://github.com/mozilla/geckodriver/releases
 

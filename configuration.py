@@ -207,6 +207,11 @@ class configuration(object):
 		else:
 			self.historyFileBase = ''
 
+		if(cp.has_option('global', 'tripsDir')):
+			self.tripsDir = cp.get('global', 'tripsDir')
+		else:
+			self.tripsDir = 'trips'
+
 		i = 0
 		self.trips = []
 		pattern = re.compile("^trip-[0-9]+$")
