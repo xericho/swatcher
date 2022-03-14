@@ -169,13 +169,13 @@ def scrape(
     fullUrl = URL + '?' + query
     # print(fullUrl)
     driver.get(fullUrl)
-    # driver.implicitly_wait(5)
 
     waitCSS = ".page-error--list, .trip--form-container, "
     waitCSS += "#air-booking-product-1" if tripType == 'roundtrip' else "#air-booking-product-0"
 
     try:
         element = WebDriverWait(driver, URL_TIMEOUT).until( EC.element_to_be_clickable((By.CSS_SELECTOR, waitCSS)))
+        driver.implicitly_wait(5)
 
     except TimeoutException:
         raise scrapeTimeout("scrape: Timeout occurred after " + str(URL_TIMEOUT) + " seconds waiting for web result")
@@ -202,26 +202,22 @@ def scrape(
     # If here, we should have results, so  parse out...
     priceMatrixes = driver.find_elements(by=By.CLASS_NAME, value="air-booking-select-price-matrix")
 
-    segments = []
+    departFlights, returnFlights = [], []
+    try:
+        if (payload['tripType'] == 'roundtrip'):
+            if (len(priceMatrixes) != 2):
+                raise Exception("Only one set of prices returned for round-trip travel")
 
-    if (payload['tripType'] == 'roundtrip'):
-        if (len(priceMatrixes) != 2):
-            raise Exception("Only one set of prices returned for round-trip travel")
+            for element in  priceMatrixes[0].find_elements(by=By.CLASS_NAME, value="air-booking-select-detail"):
+                departFlights.append(scrapeFlights(element))
 
-        outboundSegment = []
-        for element in  priceMatrixes[0].find_elements(by=By.CLASS_NAME, value="air-booking-select-detail"):
-            outboundSegment.append(scrapeFlights(element))
-        segments.append(outboundSegment)
+            for element in  priceMatrixes[1].find_elements(by=By.CLASS_NAME, value="air-booking-select-detail"):
+                returnFlights.append(scrapeFlights(element))
+        else:
+            for element in  priceMatrixes[0].find_elements(by=By.CLASS_NAME, value="air-booking-select-detail"):
+                departFlights.append(scrapeFlights(element))
+    except Exception as ex:
+        message = "An exception of type {0} occurred. Arguments:\n{1!r}".format(type(ex).__name__, ex.args)
+        raise scrapeGeneral("scrape: General exception occurred - " + message)
 
-        returnSegment = []
-        for element in  priceMatrixes[1].find_elements(by=By.CLASS_NAME, value="air-booking-select-detail"):
-            returnSegment.append(scrapeFlights(element))
-        segments.append(returnSegment)
-
-    else:
-        outboundSegment = []
-        for element in  priceMatrixes[0].find_elements(by=By.CLASS_NAME, value="air-booking-select-detail"):
-            outboundSegment.append(scrapeFlights(element))
-        segments.append(outboundSegment)
-
-    return segments
+    return departFlights, returnFlights

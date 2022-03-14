@@ -207,7 +207,7 @@ class configuration(object):
 		else:
 			self.historyFileBase = ''
 
-		i = 0;
+		i = 0
 		self.trips = []
 		pattern = re.compile("^trip-[0-9]+$")
 		for section in cp.sections():

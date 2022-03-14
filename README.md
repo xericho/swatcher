@@ -23,7 +23,7 @@ To understand how to properly use and configure swatcher, please refer to the co
 
 #### Using with Google Chrome
 
-Swatcher has been tested with Google Chrome 66.0.3359 and Chromium 57.0.2987. To use Selenium with Google Chrome, you will also need ChromeDriver, the WebDriver for Chrome can be downloaded at:
+Swatcher has been tested with Google Chrome 99.0.4844.51. To use Selenium with Google Chrome, you will also need ChromeDriver, the WebDriver for Chrome can be downloaded at:
 
 http://chromedriver.chromium.org/downloads
 
@@ -54,10 +54,4 @@ Swatcher has been tested and found to work on Ubuntu 16.04, 18.04 and Debian 8.
 Swatcher has been tested and found to work on Windows 10 using Chrome w/ the aforementioned versions. The only peculiarity is I get a ```DevTools listening on ...``` message to the console which does not appear under Linux, but all else functions normally. As mentioned above, the path to Chrome has to be in your configuration .ini file - make sure backslashes are used for directories and not the Linux forwardslashes.
 
 ##### MacOS
-I have yet to test under MacOS, but I do not see any reason why it shouldn't work
-
-#### Modifications and Enhancements
-
-I consider swatcher to be a work-in-progress, so if you have any modifications or suggestions, please feel free to discuss with me [farewatch (at) techtricity.com], and I may take you pull request or implement the change, if I have the cycles.
-
--john-
+Tested and works on MacOS Monterey 12.1.

@@ -2,7 +2,8 @@ import argparse
 import time
 import selenium
 import datetime
-import os
+import os, json
+import pandas as pd
 
 import swa
 import configuration
@@ -42,16 +43,16 @@ class swatcher(object):
 
         return args
 
-    def initializeHistory(self, index):
+    def initializeLogs(self, index):
 
         tripHistory = os.linesep + "Trip Details:"
         ignoreKeys = ['index', 'description']
         for key in self.config.trips[index].__dict__:
-            if(any(x in key for x in ignoreKeys)):
+            if any(x in key for x in ignoreKeys):
                 continue
             tripHistory += os.linesep + "   " + key + ": " + str(self.config.trips[index].__dict__[key])
 
-        if(self.config.historyFileBase):
+        if self.config.historyFileBase:
             try:
                 historyFileName = self.config.historyFileBase + "-" + str(index) + ".history"
                 with open(historyFileName) as historyFile:
@@ -62,9 +63,8 @@ class swatcher(object):
 
         return tripHistory
 
-
-    def appendHistoryFile(self, index, message):
-        if(self.config.historyFileBase):
+    def appendLogFile(self, index, message):
+        if self.config.historyFileBase:
             try:
                 historyFileName = self.config.historyFileBase + "-" + str(index) + ".history"
                 with open(historyFileName, 'a') as historyFile:
@@ -72,98 +72,128 @@ class swatcher(object):
             except IOError as e:
                 pass
 
+    def initializeCsvHistory(self, trip, dir_name='trips'):
+        trip_name = trip.description.split('/')[-1]
+        file_path = os.path.join(dir_name, f"{trip_name}.csv")
+        if os.path.exists(file_path):
+            # File exists so it's already initialized
+            return
+        os.makedirs(dir_name, exist_ok=False)
+        columns = ['query_date', 'returnOrDepart', 'flight', 'origination', 'destination', 'duration', 'stops', 'fare', 'fareAnytime', 'fareBusinessSelect']
+        pd.DataFrame(columns=columns).to_csv(file_path, index=False)
+        with open(os.path.join(dir_name, f'{trip_name}_config.json'), 'w') as f:
+            json.dump({
+                'adultPassengersCount': trip.adultPassengersCount,
+                'departureDate': trip.departureDate,
+                'departureTimeOfDay': trip.departureTimeOfDay,
+                'description': trip.description,
+                'destinationAirportCode': trip.destinationAirportCode,
+                'maxDuration': trip.maxDuration,
+                'maxPrice': trip.maxPrice,
+                'maxStops': trip.maxStops,
+                'originationAirportCode': trip.originationAirportCode,
+                'returnDate': trip.returnDate,
+                'returnTimeOfDay': trip.returnTimeOfDay,
+                'specificFlights': trip.specificFlights,
+                'type': trip.type,
+            }, f, indent=2)
+    
+    def appendCsvHistory(self, trip, flights, depart):
+        pass
 
     def sendNotification(self, index, message):
 
-        if(index is None):
+        if index is None:
             return
 
         subject = self.config.trips[index].description + ": " + message
-        print(self.now() + ": SENDING NOTIFICATION!!! '" + subject + "'")
+        # print(self.now() + ": SENDING NOTIFICATION!!! '" + subject + "'")
+        print(f"{self.now()}: {subject}")
 
-        if(not self.state[index].notificationHistory):
+        if not self.state[index].notificationHistory:
             # If in here, this is the first notification, so add details to notification and see if history is enabled
-            self.state[index].notificationHistory = self.initializeHistory(index)
-            self.appendHistoryFile(index, self.now() + ": Monitoring started")
+            self.state[index].notificationHistory = self.initializeLogs(index)
+            self.appendLogFile(index, self.now() + ": Monitoring started")
             self.state[index].notificationHistory = self.now() + ": Monitoring started" + os.linesep + self.state[index].notificationHistory
 
         shortMessage = self.now() + ": " + message
         self.state[index].notificationHistory = shortMessage + os.linesep + self.state[index].notificationHistory
-        self.appendHistoryFile(index, shortMessage)
+        self.appendLogFile(index, shortMessage)
 
-        if(self.config.notification.type == 'smtp'):
+        if self.config.notification.type == 'smtp':
             try:
                     # importing this way keeps people who aren't interested in smtplib from installing it..
-                # smtplib = __import__('smtplib')
-                # if(self.config.notification.useAuth):
-                #     server = smtplib.SMTP(self.config.notification.host, self.config.notification.port)
-                #     server.ehlo()
-                #     server.starttls()
-                #     server.login(self.config.notification.username, self.config.notification.password)
-                # else:
-                #     server = smtplib.SMTP(self.config.notification.host, self.config.notification.port)
+                smtplib = __import__('smtplib')
+                if self.config.notification.useAuth:
+                    server = smtplib.SMTP(self.config.notification.host, self.config.notification.port)
+                    server.ehlo()
+                    server.starttls()
+                    server.login(self.config.notification.username, self.config.notification.password)
+                else:
+                    server = smtplib.SMTP(self.config.notification.host, self.config.notification.port)
 
                 mailMessage = """From: %s\nTo: %s\nX-Priority: 2\nSubject: %s\n\n""" % (self.config.notification.sender, self.config.notification.recipient, subject)
                 mailMessage += self.state[index].notificationHistory
 
-                # server.sendmail(self.config.notification.sender, self.config.notification.recipient, mailMessage)
-                print(mailMessage)
-                # server.quit()
+                server.sendmail(self.config.notification.sender, self.config.notification.recipient, mailMessage)
+                server.quit()
+                print(self.now() + ": SENDING NOTIFICATION!!! '" + subject + "'")
 
             except Exception as e:
                 print(self.now() + ": UNABLE TO SEND NOTIFICATION DUE TO ERROR - " + str(e))
             return
-        elif(self.config.notification.type == 'twilio'):
+        elif self.config.notification.type == 'twilio':
             try:
                     # importing this way keeps people who aren't interested in Twilio from installing it..
                 twilio = __import__('twilio.rest')
 
                 client = twilio.rest.Client(self.config.notification.accountSid, self.config.notification.authToken)
                 client.messages.create(to = self.config.notification.recipient, from_ = self.config.notification.sender, body = subject)
+                print(self.now() + ": SENDING NOTIFICATION!!! '" + subject + "'")
             except Exception as e:
                 print(self.now() + ": UNABLE TO SEND NOTIFICATION DUE TO ERROR - " + str(e))
             return
 
 
-    def findLowestFareInSegment(self, trip, segment):
+    def findLowestFare(self, trip, flights):
 
         lowestCurrentFare = None
 
         specificFlights = []
-        if(trip.specificFlights):
+        if trip.specificFlights:
             specificFlights = [x.strip() for x in trip.specificFlights.split(',')]
 
-        for flight in segment:
+        for flight in flights:
 
                 # If flight is sold-out or otherwise unavailable, no reason to process further
-            if(flight['fare'] is None):
+            if flight['fare'] is None:
                 continue
 
                 # Now, see if looking for specificFlights - if this is set, all other rules do not matter...
-            if(len(specificFlights) and (flight['flight'] not in specificFlights)):
+            if len(specificFlights) and (flight['flight'] not in specificFlights):
                 continue
 
-            if(trip.maxStops < flight['stops']):
+            if trip.maxStops < flight['stops']:
                 continue
 
-            if((trip.maxDuration > 0.0) and (trip.maxDuration < flight['duration'])):
+            if (trip.maxDuration > 0.0) and (trip.maxDuration < flight['duration']):
                 continue
 
-            if(lowestCurrentFare is None):
+            if lowestCurrentFare is None:
                 lowestCurrentFare = flight['fare']
-            elif(flight['fare'] < lowestCurrentFare):
+            elif flight['fare'] < lowestCurrentFare:
                 lowestCurrentFare = flight['fare']
 
         return lowestCurrentFare
 
     def processTrip(self, trip, driver):
-        if(self.state[trip.index].blockQuery):
+        if self.state[trip.index].blockQuery:
             return True
 
         print(self.now() + ": Querying flight '" + trip.description + "'")
 
         try:
-            segments = swa.scrape(
+            departFlights, returnFlights = swa.scrape(
                 driver = driver,
                 originationAirportCode = trip.originationAirportCode,
                 destinationAirportCode = trip.destinationAirportCode,
@@ -180,7 +210,7 @@ class swatcher(object):
             print("\nValidation errors are not retryable, so swatcher is exiting")
             return False
         except swa.scrapeDatesNotOpen as e:
-            if(self.state[trip.index].firstQuery):
+            if self.state[trip.index].firstQuery:
                 self.sendNotification(trip.index, "Dates do not appear open")
                 self.state[trip.index].firstQuery = False
             return True
@@ -189,56 +219,56 @@ class swatcher(object):
             self.state[trip.index].blockQuery = True
             return True
         except swa.scrapeTimeout as e:
-                # This could be a few things - internet or SWA website is down.
-                # it could also mean my WebDriverWait conditional is incorrect/changed. Don't know
-                # what to do about this, so for now, just print to screen and try again at next loop
+            # This could be a few things - internet or SWA website is down.
+            # it could also mean my WebDriverWait conditional is incorrect/changed. Don't know
+            # what to do about this, so for now, just print to screen and try again at next loop
             print(self.now() + ": Timeout waiting for results, will retry next loop")
             return True
         except Exception as e:
-            print(e)
+            print(f"Custom error: {e}")
             self.state[trip.index].errorCount += 1
-            if(self.state[trip.index].errorCount == 10):
+            if self.state[trip.index].errorCount == 10:
                 self.state[trip.index].blockQuery = True
                 self.sendNotification(trip.index, "Ceasing queries due to frequent errors")
             return True
 
-            # If here, successfully scraped, so reset errorCount
+        # If here, successfully scraped, so reset errorCount
         self.state[trip.index].errorCount = 0
 
         lowestFare = None
         priceCount = 0
-        for segment in segments:
-            lowestSegmentFare = self.findLowestFareInSegment(trip, segment)
-            if(lowestSegmentFare is None):
-                break
-            lowestFare = lowestSegmentFare if lowestFare is None else lowestFare + lowestSegmentFare
-            priceCount += 1
+        lowestDepartFare = self.findLowestFare(trip, departFlights)
+        lowestReturnFare = self.findLowestFare(trip, returnFlights)
 
-        if(((lowestFare is not None) and (trip.maxPrice > 0) and (lowestFare > trip.maxPrice)) or (priceCount != len(segments))):
+        if lowestDepartFare and lowestReturnFare:
+            lowestFare = lowestDepartFare + lowestReturnFare
+            self.initializeCsvHistory(trip)
+
+        if (lowestFare and trip.maxPrice > 0 and lowestFare > trip.maxPrice) or not departFlights or not returnFlights:
             lowestFare = None
 
-        if(self.state[trip.index].firstQuery):
-            if(lowestFare is None):
+        if self.state[trip.index].firstQuery:
+            if lowestFare is None:
                 self.sendNotification(trip.index, "Fare that meets criteria is UNAVAILABLE")
             else:
                 self.sendNotification(trip.index, "Fare now $" + str(lowestFare))
             self.state[trip.index].currentLowestFare = lowestFare
             self.state[trip.index].firstQuery = False
-        elif(self.state[trip.index].currentLowestFare is None):
-            if(lowestFare is not None):
+        elif self.state[trip.index].currentLowestFare is None:
+            if lowestFare:
                 self.sendNotification(trip.index, "Fare now $" + str(lowestFare))
                 self.state[trip.index].currentLowestFare = lowestFare
         else:
-            if(lowestFare is None):
+            if lowestFare is None:
                 self.sendNotification(trip.index, "Fare that meets criteria is UNAVAILABLE")
                 self.state[trip.index].currentLowestFare = None
-            elif(lowestFare != self.state[trip.index].currentLowestFare):
+            elif lowestFare != self.state[trip.index].currentLowestFare:
                 self.sendNotification(trip.index, "Fare now $" + str(lowestFare))
                 self.state[trip.index].currentLowestFare = lowestFare
 
-        if(self.config.dailyAlerts):
-            if(self.state[trip.index].dailyAlertDate != datetime.datetime.now().date()):
-                if(lowestFare is None):
+        if self.config.dailyAlerts:
+            if self.state[trip.index].dailyAlertDate != datetime.datetime.now().date():
+                if lowestFare is None:
                     self.sendNotification(trip.index, "Daily alert fare that meets criteria is UNAVAILABLE")
                 else:
                     self.sendNotification(trip.index, "Daily alert fare is $" + str(lowestFare))
@@ -249,16 +279,16 @@ class swatcher(object):
 
     def processTrips(self, driver):
         for trip in self.config.trips:
-            if(not self.processTrip(trip, driver)):
+            if not self.processTrip(trip, driver):
                 return False
 
         allBlocked = True
         for state in self.state:
-            if(not state.blockQuery):
+            if not state.blockQuery:
                 allBlocked = False
                 break
 
-        if(allBlocked):
+        if allBlocked:
             print(self.now() + ": Stopping swatcher as there are no remaining trips to monitor")
             return False
 
@@ -278,8 +308,7 @@ class swatcher(object):
         self.state = [state() for i in range(len(self.config.trips))]
 
 
-
-        if(self.config.browser.type == 'chrome'): # Or Chromium
+        if self.config.browser.type == 'chrome': # Or Chromium
             options = selenium.webdriver.ChromeOptions()
             # options.add_argument('headless')
             options.add_experimental_option("excludeSwitches", ['enable-automation'])
@@ -288,7 +317,7 @@ class swatcher(object):
             options.add_argument("log-level=" + str(self.config.browser.logLevel))
             service = selenium.webdriver.chrome.service.Service(executable_path=self.config.browser.binaryLocation)
             driver = selenium.webdriver.Chrome(service=service, options=options)
-        elif(self.config.browser.type == 'firefox'): # Or Iceweasel
+        elif self.config.browser.type == 'firefox': # Or Iceweasel
             options = selenium.webdriver.firefox.options.Options()
             options.binary_location = self.config.browser.binaryLocation
             options.add_argument('--headless')
@@ -300,7 +329,7 @@ class swatcher(object):
 
         while True:
 
-            if(not self.processTrips(driver)):
+            if not self.processTrips(driver):
                 break
 
             time.sleep(self.config.pollInterval * 60)
