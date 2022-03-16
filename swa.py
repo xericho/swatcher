@@ -114,9 +114,10 @@ def scrapeFlights(flight):
     flightDetails['flight'] = WebDriverWait(flight, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "flight-numbers--flight-number"))) \
         .text.replace(' ','').replace('#', '')
 
-    flightDetails['return'] = flight.find_element(by=By.XPATH, value="//div[@data-test='select-detail--origination-time']").text
+    departTime, arriveTime = flight.find_elements(by=By.CLASS_NAME, value="select-detail--time")
+    flightDetails['departTime'] = departTime.text
     # Text here can contain "Next Day", so just take time portion
-    flightDetails['destination'] = flight.find_element(by=By.XPATH, value="//div[@data-test='select-detail--destination-time']").text
+    flightDetails['arriveTime'] = arriveTime.text.split('\n')[0]
 
     durationList = WebDriverWait(flight, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "select-detail--flight-duration"))).text.split()
     # For flight duration, just round to 2 decimal places - that should be more than enough
@@ -198,6 +199,10 @@ def scrape(
             # If in here, the browser is asking to re-enter flight information, meaning that
             # parameters supplied are most likely bad
         raise scrapeValidation("scrape: SWA Website reported what appears to be errors with parameters")
+
+    # Refresh to make sure it loads everything
+    driver.get(fullUrl)
+    element = WebDriverWait(driver, URL_TIMEOUT).until(EC.element_to_be_clickable((By.CSS_SELECTOR, waitCSS)))
 
     # If here, we should have results, so  parse out...
     priceMatrixes = driver.find_elements(by=By.CLASS_NAME, value="air-booking-select-price-matrix")

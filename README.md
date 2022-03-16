@@ -55,3 +55,8 @@ Swatcher has been tested and found to work on Windows 10 using Chrome w/ the afo
 
 ##### MacOS
 Tested and works on MacOS Monterey 12.1.
+
+
+### Running on Raspberry Pi 3
+- https://community.octoprint.org/t/problem-installing-desktop-with-0-18-0-release/37018/7
+- https://patrikmojzis.medium.com/how-to-run-selenium-using-python-on-raspberry-pi-d3fe058f011

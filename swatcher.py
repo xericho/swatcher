@@ -78,7 +78,7 @@ class swatcher(object):
             # File exists so it's already initialized
             return
         os.makedirs(self.config.tripsDir, exist_ok=True)
-        columns = ['query_datetime', 'returnOrDepart', 'flight', 'return', 'destination', 'duration', 'stops', 'fare', 'fareAnytime', 'fareBusinessSelect']
+        columns = ['query_datetime', 'returnOrDepart', 'flight', 'departTime', 'arriveTime', 'duration', 'stops', 'fare', 'fareAnytime', 'fareBusinessSelect']
         pd.DataFrame(columns=columns).to_csv(file_path, index=False)
         with open(os.path.join(self.config.tripsDir, f'{trip_name}_config.json'), 'w') as f:
             json.dump({
@@ -165,9 +165,10 @@ class swatcher(object):
     def findLowestFare(self, trip):
         """
         Filter for 
-            - specific flights
-            - max stops
-            - max duration
+            - Specific flight numbers
+            - Maximum number of stops
+            - Maximum duration of segment
+            - Maximum price
         and then check for lowest price.
         """
         trip_name = trip.description.split('/')[-1]
@@ -237,8 +238,6 @@ class swatcher(object):
         self.appendCsvHistory(trip, departFlights, depart=True)
         self.appendCsvHistory(trip, returnFlights, depart=False)
 
-        # self.findLowestFare(trip)
-
     def processTrips(self, driver):
         for trip in self.config.trips:
             if not self.processTrip(trip, driver):
@@ -278,6 +277,7 @@ class swatcher(object):
             options.add_argument("log-level=" + str(self.config.browser.logLevel))
             service = selenium.webdriver.chrome.service.Service(executable_path=self.config.browser.binaryLocation)
             driver = selenium.webdriver.Chrome(service=service, options=options)
+            driver.minimize_window()
         elif self.config.browser.type == 'firefox': # Or Iceweasel
             options = selenium.webdriver.firefox.options.Options()
             options.binary_location = self.config.browser.binaryLocation
@@ -286,6 +286,7 @@ class swatcher(object):
         else:
             print("Unsupported web browser '" + browser.type + "' specified")
             quit()
+
 
         # Stops when all queries have been blocked
         while not all([s.blockQuery for s in self.states]):
