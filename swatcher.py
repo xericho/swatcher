@@ -225,7 +225,7 @@ class swatcher(object):
         except Exception as e:
             print(e)
             self.states[trip.index].errorCount += 1
-            if self.states[trip.index].errorCount == 10:
+            if self.states[trip.index].errorCount == 3:
                 self.states[trip.index].blockQuery = True
                 self.sendNotification(trip.index, "Ceasing queries due to frequent errors")
             return
